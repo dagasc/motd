@@ -1,0 +1,78 @@
+pmotd v1.1 01.12.2023 www.deepnet.no
+
+clear
+
+let upSeconds="$(/usr/bin/cut -d. -f1 /proc/uptime)"
+let secs=$((${upSeconds}%60))
+let mins=$((${upSeconds}/60%60))
+let hours=$((${upSeconds}/3600%24))
+let days=$((${upSeconds}/86400))
+
+# set $temp
+temp=$(($(cat /sys/class/thermal/thermal_zone0/temp) / 1000))
+
+# set color to temp
+if [ $temp -lt 60 ]; then
+  color=$(tput setaf 2)  # Green
+elif [ $temp -lt 70 ]; then
+  color=$(tput setaf 3)  # Yellow
+else
+  color=$(tput setaf 1)  # Red
+fi
+
+# set $username
+username=$(whoami)
+
+# set $ufwports
+if sudo ufw status &>/dev/null; then
+    ufwports=$(sudo ufw status | grep -oE "[0-9]+\/[a-z]+" | sed 's/\/[a-z]\+//' | sort -n | uniq | tr '\n' ' ')
+else
+    ufwports="Disabled."
+fi
+
+# set $passwdusers
+passwdusers=$(awk -F: '$3 >= 1000 && $3 < 65534 {printf "%s ", $1}' /etc/passwd)
+
+# set $public_ipv4
+public_ipv4=$(curl -s4 http://icanhazip.com/)
+
+# set $public_ipv6
+public_ipv6=$(curl -s6 http://icanhazip.com/)
+
+# uptime
+UPTIME=`printf "%d days, %02dh %02dm %02ds" "$days" "$hours" "$mins" "$secs"`
+
+# get the load averages
+read one five fifteen rest < /proc/loadavg
+
+# set last login time
+last_login_date=$(lastlog -u $username | awk 'NR==2 {$1=$2=$3=""; print $0}' | awk '$1=$1')
+last_login_ip=$(lastlog -u $username | awk 'NR==2 {print $3}')
+
+# Display memory usage in GB with two decimal places
+memory_used=$(free -m | awk '/Mem/ {printf "%.2f", $3/1024}')
+memory_total=$(awk '/MemTotal/ {printf "%.2f", $2/1024/1024}' /proc/meminfo)
+
+clear
+
+echo "$(tput setaf 3)`date +"%A, %e %B %Y, %T"`
+
+$(tput sgr0)  Model..............: $(tr -d '\0' < /proc/device-tree/model)
+$(tput sgr0)  OS.................: `grep 'PRETTY_NAME' /etc/os-release | cut -d '"' -f 2`
+$(tput sgr0)  Kernel.............: `uname -srm`
+$(tput sgr0)  Uptime.............: ${UPTIME}
+$(tput sgr0)  Running Processes..: `ps ax | wc -l | tr -d " "`
+$(tput sgr0)  Load Averages......: ${one} (1min), ${five} (5mins), ${fifteen} (15mins)
+$(tput sgr0)  CPU Temperature....: $color$temp C
+$(tput sgr0)  Memory.............: ${memory_used} GB (used) of ${memory_total} GB (total)
+$(tput sgr0)  Storage............: `df -h -x tmpfs -x vfat -x devtmpfs | awk 'NR==2 {print $5 " (" $3 " of " $2 ") used on " $1 }'`
+$(tput sgr0)  IPv4 LAN...........: `hostname -I | /usr/bin/cut -d " " -f 1`
+$(tput sgr0)  IPv4 WAN...........: $public_ipv4  
+$(tput sgr0)  IPv6 LAN...........: `ifconfig eth0 | grep "inet6" | awk 'NR==1 {print $2}'`
+$(tput sgr0)  IPv6 WAN...........: $public_ipv6
+$(tput sgr0)  MAC Address........: $(ifconfig eth0 | awk '/ether/ {print toupper($2)}')
+$(tput sgr0)  Firewall (UFW).....: $ufwports
+$(tput sgr0)  Last Login.........: $last_login_date
+$(tput sgr0)  ...................: $last_login_ip
+$(tput sgr0)  User Accounts......: $passwdusers
+$(tput sgr0)"
