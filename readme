@@ -1,0 +1,6 @@
+# Custom MOTD on Raspberry Pi OS
+#
+# 1. sudo rm /etc/motd
+# 2. username=$(whoami) && sudo nano "/home/$username/.bash_profile"
+# 3. paste motd script
+# 4. sudo systemctl restart sshd
